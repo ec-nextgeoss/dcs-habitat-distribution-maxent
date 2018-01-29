@@ -81,18 +81,26 @@ function pass_next_node()
 ###############################################################################
 function main()
 {
+  currentTime=$(date +%s%N)
   export JAVA_HOME="/usr/lib/jvm/jre-1.8.0"
   export PATH=/usr/lib/jvm/jre-1.8.0/bin:$PATH 
 
   predictors="$(ciop-getparam predictors)"
   IFS=","
   predictordir="${TMPDIR}/predictors"
+  predictorCacheDir="${predictordir}/maxent.cache"
   mkdir ${predictordir}
+  mkdir ${predictorCacheDir}
   for predictor in ${predictors}
   do
 	cp /data/predictors/${predictor}.asc ${predictordir}
-  done  
-  
+	cp /data/predictors/maxent.cache/${predictor}.info ${predictorCacheDir}
+	cp /data/predictors/maxent.cache/${predictor}.mxe ${predictorCacheDir}
+  done 
+  timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
+  echo "Predictor file copying took $timeElapsed mSeconds"
+
+  currentTime=$(date +%s%N)
   type="$(ciop-getparam type)"
   obsurl="https://www.synbiosys.alterra.nl/nextgeoss/service/getdistribution.aspx?eunistype=${type}&target=csv"
   obspath=${TMPDIR}/${type}.csv
@@ -103,8 +111,12 @@ function main()
   then 
 	exit ${ERR_GETSAMPLES}
   fi
+  timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
+  echo "Retrieving samples from SYNBIOSYS server took $timeElapsed mSeconds"
   
 
+  # run MAXENT
+  currentTime=$(date +%s%N)
   # Log the input
   log_input ${input}
   maxentjar="${_CIOP_APPLICATION_PATH}/maxent/bin/maxent.jar"
@@ -117,8 +129,11 @@ function main()
   then 
 	exit ${ERR_MAXENT}
   fi
+  timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
+  echo "Running maxent took $timeElapsed mSeconds"
 
   # zip all results
+  currentTime=$(date +%s%N)
   resultZipFile="${TMPDIR}/maxent_${type}.zip"
   tar czf ${resultZipFile} ${outputpath}
   exitcode=$?
@@ -126,7 +141,11 @@ function main()
   then 
 	exit ${ERR_TAR}
   fi
+  timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
+  echo "Zipping results took $timeElapsed mSeconds"
 
+  # publish results
+  currentTime=$(date +%s%N)
   ciop-publish -m ${resultZipFile}
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
@@ -149,6 +168,9 @@ function main()
 	   exit ${ERR_PUBLISH}
         fi
   done  
+  timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
+  echo "Publishing results took $timeElapsed mSeconds"
+
   exit ${SUCCESS}
 }
 
