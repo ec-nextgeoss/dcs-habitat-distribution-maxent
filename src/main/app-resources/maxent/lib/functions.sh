@@ -32,6 +32,7 @@ function cleanExit ()
     ${ERR_GETSAMPLES}) msg="Failed to retrieve vegetation samples from external server (SYNBIOSYS)";;
     ${ERR_GEOSERVER_CURL}) msg="Failed to publish the resulting maps on GeoServer. CURL returned an error.";;
     ${ERR_GEOSERVER_HTTP}) msg="Failed to publish the resulting maps on GeoServer. GeoServer returned a HTTP error.";;
+    ${ERR_GEOSERVER_GDALWARP}) msg="Failed to publish the resulting maps on GeoServer. GDALWARP failed to reproject maxent ASC file into GeoTIFF ETRS.";;
     ${ERR_TAR}) msg="Failed to TAR the results";;
     *) msg="Unknown error";;
   esac
@@ -170,29 +171,43 @@ function main()
   # put maps on geoserver 
   #
   currentTime=$(date +%s%N)
-  fractionMap="${type}"
-  threshholdMap="${type}_thresholded"
   set -x
 
   # upload fraction map
-  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:text/xml --data-binary @${outputpath}/${fractionMap}.asc  http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${fractionMap}/file.arcgrid -w '%{http_code}')
+  fractionMap="${type}"
+  gtifFractionMap="${outputpath}/${fractionMap}.tiff"
+  gdalwarp -t_srs EPSG:3035 ${outputpath}/${fractionMap}.asc ${gtifFractionMap}
+  if [ "${exitcode}" -ne 0 ] 
+  then 
+	exit ${ERR_GEOSERVER_GDALWARP}
+  fi
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifFractionMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${fractionMap}/file.geotiff -w '%{http_code}')
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
 	exit ${ERR_GEOSERVER_CURL}
   fi
+  echo "HTTPSTATUS ${httpStatus}"
   if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ]
   then
   	exit ${ERR_GEOSERVER_HTTP} 
   fi
 
   # upload threshholded map
-  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:text/xml --data-binary @${outputpath}/${threshholdMap}.asc  http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${threshholdMap}/file.arcgrid -w '%{http_code}')
+  threshholdMap="${type}_thresholded"
+  gtifThreshholdMap="${outputpath}/${threshholdMap}.tiff"
+  gdalwarp -t_srs EPSG:3035 ${outputpath}/${threshholdMap}.asc ${gtifThreshholdMap}
+  if [ "${exitcode}" -ne 0 ] 
+  then 
+	exit ${ERR_GEOSERVER_GDALWARP}
+  fi
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifThreshholdMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${threshholdMap}/file.geotiff -w '%{http_code}')
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
 	exit ${ERR_GEOSERVER_CURL}
   fi
+  echo "HTTPSTATUS ${httpStatus}"
   if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ]
   then
   	exit ${ERR_GEOSERVER_HTTP} 
