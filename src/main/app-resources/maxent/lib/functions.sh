@@ -6,6 +6,7 @@ ERR_PUBLISH=55
 ERR_MAXENT=33
 ERR_GETSAMPLES=44
 ERR_TAR=77
+ERR_GEOSERVER=88
 
 # source the ciop functions (e.g. ciop-log, ciop-getparam)
 source ${ciop_job_include}
@@ -29,6 +30,8 @@ function cleanExit ()
     ${ERR_PUBLISH}) msg="Failed to publish the results";;
     ${ERR_MAXENT}) msg="Failed to run mxent model";;
     ${ERR_GETSAMPLES}) msg="Failed to retrieve vegetation samples from external server (SYNBIOSYS)";;
+    ${ERR_GEOSERVER_CURL}) msg="Failed to publish the resulting maps on GeoServer. CURL returned an error.";;
+    ${ERR_GEOSERVER_HTTP}) msg="Failed to publish the resulting maps on GeoServer. GeoServer returned a HTTP error.";;
     ${ERR_TAR}) msg="Failed to TAR the results";;
     *) msg="Unknown error";;
   esac
@@ -85,6 +88,11 @@ function main()
   export JAVA_HOME="/usr/lib/jvm/jre-1.8.0"
   export PATH=/usr/lib/jvm/jre-1.8.0/bin:$PATH 
 
+
+
+  #
+  # copy selected predictor maps
+  #
   predictors="$(ciop-getparam predictors)"
   IFS=","
   predictordir="${TMPDIR}/predictors"
@@ -100,6 +108,11 @@ function main()
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
   echo "Predictor file copying took $timeElapsed mSeconds"
 
+
+
+  #
+  # retrieve samples for selected EUNIS vegetation type
+  #
   currentTime=$(date +%s%N)
   type="$(ciop-getparam type)"
   obsurl="https://www.synbiosys.alterra.nl/nextgeoss/service/getdistribution.aspx?eunistype=${type}&target=csv"
@@ -115,7 +128,10 @@ function main()
   echo "Retrieving samples from SYNBIOSYS server took $timeElapsed mSeconds"
   
 
+
+  #
   # run MAXENT
+  #
   currentTime=$(date +%s%N)
   # Log the input
   log_input ${input}
@@ -132,7 +148,11 @@ function main()
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
   echo "Running maxent took $timeElapsed mSeconds"
 
+
+
+  #
   # zip all results
+  #
   currentTime=$(date +%s%N)
   resultZipFile="${TMPDIR}/maxent_${type}.zip"
   tar czf ${resultZipFile} ${outputpath}
@@ -144,7 +164,49 @@ function main()
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
   echo "Zipping results took $timeElapsed mSeconds"
 
+
+
+  #
+  # put maps on geoserver 
+  #
+  currentTime=$(date +%s%N)
+  fractionMap="${type}"
+  threshholdMap="${type}_thresholded"
+  set -x
+
+  # upload fraction map
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:text/xml --data-binary @${outputpath}/${fractionMap}.asc  http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${fractionMap}/file.arcgrid -w '%{http_code}')
+  exitcode=$?
+  if [ "${exitcode}" -ne 0 ] 
+  then 
+	exit ${ERR_GEOSERVER_CURL}
+  fi
+  if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ]
+  then
+  	exit ${ERR_GEOSERVER_HTTP} 
+  fi
+
+  # upload threshholded map
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:text/xml --data-binary @${outputpath}/${threshholdMap}.asc  http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${threshholdMap}/file.arcgrid -w '%{http_code}')
+  exitcode=$?
+  if [ "${exitcode}" -ne 0 ] 
+  then 
+	exit ${ERR_GEOSERVER_CURL}
+  fi
+  if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ]
+  then
+  	exit ${ERR_GEOSERVER_HTTP} 
+  fi
+
+  set +x
+  timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
+  echo "Uploading and publishing maps on geoserver took $timeElapsed mSeconds"
+
+
+
+  #
   # publish results
+  #
   currentTime=$(date +%s%N)
   ciop-publish -m ${resultZipFile}
   exitcode=$?
