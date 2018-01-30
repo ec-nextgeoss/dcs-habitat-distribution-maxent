@@ -85,16 +85,22 @@ function pass_next_node()
 ###############################################################################
 function main()
 {
-  currentTime=$(date +%s%N)
   export JAVA_HOME="/usr/lib/jvm/jre-1.8.0"
   export PATH=/usr/lib/jvm/jre-1.8.0/bin:$PATH 
+
+  # get input and output parameters
+  type="$(ciop-getparam type)"
+  predictors="$(ciop-getparam predictors)"
+
+  dateTimeID=$(date +%Y%m%d_%H%M%S)
+  resultID="maxent_${dateTimeID}_${type}"
 
 
 
   #
   # copy selected predictor maps
   #
-  predictors="$(ciop-getparam predictors)"
+  currentTime=$(date +%s%N)
   IFS=","
   predictordir="${TMPDIR}/predictors"
   predictorCacheDir="${predictordir}/maxent.cache"
@@ -115,7 +121,6 @@ function main()
   # retrieve samples for selected EUNIS vegetation type
   #
   currentTime=$(date +%s%N)
-  type="$(ciop-getparam type)"
   obsurl="https://www.synbiosys.alterra.nl/nextgeoss/service/getdistribution.aspx?eunistype=${type}&target=csv"
   obspath=${TMPDIR}/${type}.csv
   ciop-log "INFO" "obspath=${obspath}"
@@ -155,7 +160,7 @@ function main()
   # zip all results
   #
   currentTime=$(date +%s%N)
-  resultZipFile="${TMPDIR}/maxent_${type}.zip"
+  resultZipFile="${TMPDIR}/${resultID}.zip"
   tar czf ${resultZipFile} ${outputpath}
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
@@ -175,13 +180,13 @@ function main()
 
   # upload fraction map
   fractionMap="${type}"
-  gtifFractionMap="${outputpath}/${fractionMap}.tiff"
+  gtifFractionMap="${outputpath}/${resultID}_fraction.tiff"
   gdalwarp -t_srs EPSG:3035 ${outputpath}/${fractionMap}.asc ${gtifFractionMap}
   if [ "${exitcode}" -ne 0 ] 
   then 
 	exit ${ERR_GEOSERVER_GDALWARP}
   fi
-  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifFractionMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${fractionMap}/file.geotiff -w '%{http_code}')
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifFractionMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${resultID}_fraction/file.geotiff -w '%{http_code}')
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
@@ -195,13 +200,13 @@ function main()
 
   # upload threshholded map
   threshholdMap="${type}_thresholded"
-  gtifThreshholdMap="${outputpath}/${threshholdMap}.tiff"
+  gtifThreshholdMap="${outputpath}/${resultID}_threshold.tiff"
   gdalwarp -t_srs EPSG:3035 ${outputpath}/${threshholdMap}.asc ${gtifThreshholdMap}
   if [ "${exitcode}" -ne 0 ] 
   then 
 	exit ${ERR_GEOSERVER_GDALWARP}
   fi
-  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifThreshholdMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${threshholdMap}/file.geotiff -w '%{http_code}')
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifThreshholdMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${resultID}_threshold/file.geotiff -w '%{http_code}')
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
