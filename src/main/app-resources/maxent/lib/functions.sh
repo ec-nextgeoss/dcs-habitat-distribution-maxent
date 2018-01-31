@@ -32,6 +32,7 @@ function cleanExit ()
     ${ERR_GETSAMPLES}) msg="Failed to retrieve vegetation samples from external server (SYNBIOSYS)";;
     ${ERR_GEOSERVER_CURL}) msg="Failed to publish the resulting maps on GeoServer. CURL returned an error.";;
     ${ERR_GEOSERVER_HTTP}) msg="Failed to publish the resulting maps on GeoServer. GeoServer returned a HTTP error.";;
+    ${ERR_GEOSERVER_CREATEWORKSPACE}) msg="Failed to publish the resulting maps on GeoServer. Could not create a geoserver workspace.";;
     ${ERR_GEOSERVER_GDALWARP}) msg="Failed to publish the resulting maps on GeoServer. GDALWARP failed to reproject maxent ASC file into GeoTIFF ETRS.";;
     ${ERR_TAR}) msg="Failed to TAR the results";;
     *) msg="Unknown error";;
@@ -92,7 +93,8 @@ function main()
   type="$(ciop-getparam type)"
   predictors="$(ciop-getparam predictors)"
 
-  dateTimeID=$(date +%Y%m%d_%H%M%S)
+  dateID=$(date +%Y%m%d)
+  dateTimeID="${dateID}_$(date +%H%M%S)"
   resultID="maxent_${dateTimeID}_${type}"
 
 
@@ -178,6 +180,16 @@ function main()
   currentTime=$(date +%s%N)
   set -x
 
+  # create geoserver workspace (if it does not already exist)
+  # to facilitate scheduled clean up of geoserver layers the workspace is given a name which includes a date 
+  workspace="nextgeoss_${dateID}"
+  httpStatus=$(curl -v -u henne002:floortje -v -XPOST -H "Content-type: text/xml" -d "<workspace><name>${workspace}</name></workspace>" http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces -w '%{http_code}')
+  echo "HTTPSTATUS ${httpStatus}"
+  if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ] && [ ${httpStatus} -ne 401 ]
+  then
+  	exit ${ERR_GEOSERVER_CREATEWORKSPACE} 
+  fi
+
   # upload fraction map
   fractionMap="${type}"
   gtifFractionMap="${outputpath}/${resultID}_fraction.tiff"
@@ -186,7 +198,7 @@ function main()
   then 
 	exit ${ERR_GEOSERVER_GDALWARP}
   fi
-  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifFractionMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${resultID}_fraction/file.geotiff -w '%{http_code}')
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifFractionMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/${workspace}/coveragestores/${resultID}_fraction/file.geotiff -w '%{http_code}')
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
@@ -206,7 +218,7 @@ function main()
   then 
 	exit ${ERR_GEOSERVER_GDALWARP}
   fi
-  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifThreshholdMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/nextgeoss/coveragestores/${resultID}_threshold/file.geotiff -w '%{http_code}')
+  httpStatus=$(curl -v -u henne002:floortje -XPUT -H Content-type:image/tiff --data-binary @${gtifThreshholdMap} http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces/${workspace}/coveragestores/${resultID}_threshold/file.geotiff -w '%{http_code}')
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
