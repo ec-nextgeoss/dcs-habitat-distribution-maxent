@@ -163,7 +163,10 @@ function main()
   #
   currentTime=$(date +%s%N)
   resultZipFile="${TMPDIR}/${resultID}.zip"
-  tar czf ${resultZipFile} ${outputpath}
+  cd ${outputpath}
+  # exclude the actual samples from the exported zip (samples are not publically accessible)
+  rm *sample*.csv 
+  zip -r ${resultZipFile} ./*
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
