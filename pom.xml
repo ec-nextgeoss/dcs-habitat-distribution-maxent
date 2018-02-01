@@ -15,8 +15,8 @@
   <properties>
     <summary>Determine likely habitat suitability based on empircal data and global drivers</summary>
     <description>habitat suitability map creator</description>
-    <community>nextGeoss</community>
-    <yumRepo>nextGeoss</yumRepo>
+    <community>ec-nextgeoss</community>
+    <yumRepo>ec-nextgeoss</yumRepo>
   </properties>
   <scm>
     <connection>scm:git:ssh://git@github.com/nextGeoss/habitatDistribution</connection>
