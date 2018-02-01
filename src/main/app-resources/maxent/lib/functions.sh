@@ -166,7 +166,7 @@ function main()
   cd ${outputpath}
   # exclude the actual samples from the exported zip (samples are not publically accessible)
   rm *sample*.csv 
-  zip -r ${resultZipFile} ./*
+  zip -r -q ${resultZipFile} ./*
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
@@ -181,13 +181,11 @@ function main()
   # put maps on geoserver 
   #
   currentTime=$(date +%s%N)
-  set -x
 
   # create geoserver workspace (if it does not already exist)
   # to facilitate scheduled clean up of geoserver layers the workspace is given a name which includes a date 
   workspace="nextgeoss_${dateID}"
   httpStatus=$(curl -v -u henne002:floortje -v -XPOST -H "Content-type: text/xml" -d "<workspace><name>${workspace}</name></workspace>" http://www.synbiosys.alterra.nl:8080/geoserver/rest/workspaces -w '%{http_code}')
-  echo "HTTPSTATUS ${httpStatus}"
   if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ] && [ ${httpStatus} -ne 401 ]
   then
   	exit ${ERR_GEOSERVER_CREATEWORKSPACE} 
@@ -207,7 +205,6 @@ function main()
   then 
 	exit ${ERR_GEOSERVER_CURL}
   fi
-  echo "HTTPSTATUS ${httpStatus}"
   if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ]
   then
   	exit ${ERR_GEOSERVER_HTTP} 
@@ -227,7 +224,6 @@ function main()
   then 
 	exit ${ERR_GEOSERVER_CURL}
   fi
-  echo "HTTPSTATUS ${httpStatus}"
   if [ ${httpStatus} -ne 200 ] && [ ${httpStatus} -ne 201 ]
   then
   	exit ${ERR_GEOSERVER_HTTP} 
