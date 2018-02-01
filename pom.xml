@@ -48,6 +48,7 @@
                   <!-- Set here the dependencies installed with 'sudo yum install'-->
                   <requires>
                     <require>bash</require>
+                    <require>java-1.8.0-openjdk</require>
                   </requires>
                 </configuration>
               </execution>
