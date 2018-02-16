@@ -11,12 +11,12 @@
     <version>2.0.0</version>
   </parent>
   <description>habitat suitability map creator</description>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0</version>
   <properties>
     <summary>Determine likely habitat suitability based on empircal data and global drivers</summary>
     <description>habitat suitability map creator</description>
-    <community>nextGeoss</community>
-    <yumRepo>nextGeoss</yumRepo>
+    <community>ec-nextgeoss</community>
+    <yumRepo>ec-nextgeoss</yumRepo>
   </properties>
   <scm>
     <connection>scm:git:ssh://git@github.com/nextGeoss/habitatDistribution</connection>
@@ -28,10 +28,10 @@
     <profile>
       <id>package-app</id>
       <activation>
-         <property>
-           <name>env</name>
-           <value>ci</value>
-         </property>
+        <property>
+          <name>env</name>
+          <value>ci</value>
+        </property>
       </activation>
       <build>
         <plugins>
@@ -48,6 +48,7 @@
                   <!-- Set here the dependencies installed with 'sudo yum install'-->
                   <requires>
                     <require>bash</require>
+                    <require>java-1.8.0-openjdk</require>
                   </requires>
                 </configuration>
               </execution>
