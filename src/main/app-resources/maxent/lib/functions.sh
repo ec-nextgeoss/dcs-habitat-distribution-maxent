@@ -97,7 +97,9 @@ function main()
   dateTimeID="${dateID}_$(date +%H%M%S)"
   resultID="maxent_${dateTimeID}_${type}"
 
-
+  # adding log file
+  timeLogFile="${TMPDIR}/$( uuidgen ).log"
+  touch ${timeLogFile}
 
   #
   # copy selected predictor maps
@@ -115,7 +117,7 @@ function main()
 	cp /data/predictors/maxent.cache/${predictor}.mxe ${predictorCacheDir}
   done 
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Predictor file copying took $timeElapsed mSeconds"
+  echo "Predictor file copying took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -133,7 +135,7 @@ function main()
 	exit ${ERR_GETSAMPLES}
   fi
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Retrieving samples from SYNBIOSYS server took $timeElapsed mSeconds"
+  echo "Retrieving samples from SYNBIOSYS server took $timeElapsed mSeconds" | tee -a ${timeLogFile}
   
 
 
@@ -154,7 +156,7 @@ function main()
 	exit ${ERR_MAXENT}
   fi
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Running maxent took $timeElapsed mSeconds"
+  echo "Running maxent took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -173,7 +175,7 @@ function main()
 	exit ${ERR_TAR}
   fi
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Zipping results took $timeElapsed mSeconds"
+  echo "Zipping results took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -231,7 +233,7 @@ function main()
 
   set +x
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Uploading and publishing maps on geoserver took $timeElapsed mSeconds"
+  echo "Uploading and publishing maps on geoserver took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -266,7 +268,15 @@ function main()
   #done
     
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Publishing results took $timeElapsed mSeconds"
+  echo "Publishing results took $timeElapsed mSeconds" | tee -a ${timeLogFile}
+  
+  # Here we need a further step of publishing due to the log file itself
+  ciop-publish -m ${timeLogFile}
+  exitcode=$?
+  if [ "${exitcode}" -ne 0 ] 
+  then 
+    exit ${ERR_PUBLISH}
+  fi
 
   exit ${SUCCESS}
 }
