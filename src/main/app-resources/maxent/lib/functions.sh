@@ -252,15 +252,19 @@ function main()
   then 
 	exit ${ERR_PUBLISH}
   fi
-  for graphFile in $(find ${outputpath}/plots/ -name *.png)
-  do
-	ciop-publish -m ${graphFile}
-        exitcode=$?
-        if [ "${exitcode}" -ne 0 ] 
-        then 
-	   exit ${ERR_PUBLISH}
-        fi
-  done  
+  
+  # Commenting publishing of png files
+  # See https://support.terradue.com/issues/7102
+  #for graphFile in $(find ${outputpath}/plots/ -name *.png)
+  #do
+  #  ciop-publish -m ${graphFile}
+  #  exitcode=$?
+  #  if [ "${exitcode}" -ne 0 ] 
+  #  then 
+  #    exit ${ERR_PUBLISH}
+  #  fi
+  #done
+    
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
   echo "Publishing results took $timeElapsed mSeconds"
 
