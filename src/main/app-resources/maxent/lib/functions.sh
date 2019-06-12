@@ -86,8 +86,11 @@ function pass_next_node()
 ###############################################################################
 function main()
 {
+  echo "Our habitat maxent program starts..."
+
   export JAVA_HOME="/usr/lib/jvm/jre-1.8.0"
   export PATH=/usr/lib/jvm/jre-1.8.0/bin:$PATH 
+  echo "export of java success"
 
   # get input and output parameters
   type="$(ciop-getparam type)"
@@ -97,25 +100,33 @@ function main()
   dateTimeID="${dateID}_$(date +%H%M%S)"
   resultID="maxent_${dateTimeID}_${type}"
 
-
+  # adding log file
+  timeLogFile="${TMPDIR}/$( uuidgen ).log"
+  touch ${timeLogFile}
 
   #
   # copy selected predictor maps
   #
+  echo "start extracting selected predictors..."
   currentTime=$(date +%s%N)
   IFS=","
-  predictordir="${TMPDIR}/predictors"
-  predictorCacheDir="${predictordir}/maxent.cache"
-  mkdir ${predictordir}
-  mkdir ${predictorCacheDir}
+  predictordir="/data/predictors"
+#  predictordir="${TMPDIR}/predictors"
+#  predictorCacheDir="${predictordir}/maxent.cache"
+#  mkdir ${predictordir}
+#  mkdir ${predictorCacheDir}
+  predictorlist=""
   for predictor in ${predictors}
   do
-	cp /data/predictors/${predictor}.asc ${predictordir}
-	cp /data/predictors/maxent.cache/${predictor}.info ${predictorCacheDir}
-	cp /data/predictors/maxent.cache/${predictor}.mxe ${predictorCacheDir}
+     echo "predictors -> ${predictorlist}" 
+#	cp /data/predictors/${predictor}.asc ${predictordir}
+#	cp /data/predictors/maxent.cache/${predictor}.info ${predictorCacheDir}
+#	cp /data/predictors/maxent.cache/${predictor}.mxe ${predictorCacheDir}
+     predictorlist+="${predictor};"
   done 
+  predictorlist=${predictorlist%;*}
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Predictor file copying took $timeElapsed mSeconds"
+  echo "Predictor file copying took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -133,7 +144,7 @@ function main()
 	exit ${ERR_GETSAMPLES}
   fi
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Retrieving samples from SYNBIOSYS server took $timeElapsed mSeconds"
+  echo "Retrieving samples from SYNBIOSYS server took $timeElapsed mSeconds" | tee -a ${timeLogFile}
   
 
 
@@ -147,14 +158,14 @@ function main()
 
   outputpath="${TMPDIR}/output"
   mkdir ${outputpath}
-  java -jar ${maxentjar}  ${predictordir} ${obspath} ${outputpath} 
+  java -jar ${maxentjar} ${predictordir} ${predictorlist} ${obspath} ${outputpath} 
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
 	exit ${ERR_MAXENT}
   fi
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Running maxent took $timeElapsed mSeconds"
+  echo "Running maxent took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -173,7 +184,7 @@ function main()
 	exit ${ERR_TAR}
   fi
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Zipping results took $timeElapsed mSeconds"
+  echo "Zipping results took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -231,7 +242,7 @@ function main()
 
   set +x
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Uploading and publishing maps on geoserver took $timeElapsed mSeconds"
+  echo "Uploading and publishing maps on geoserver took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
 
 
@@ -252,19 +263,29 @@ function main()
   then 
 	exit ${ERR_PUBLISH}
   fi
-  for graphFile in $(find ${outputpath}/plots/ -name *.png)
-  do
-	ciop-publish -m ${graphFile}
-        exitcode=$?
-        if [ "${exitcode}" -ne 0 ] 
-        then 
-	   exit ${ERR_PUBLISH}
-        fi
-  done  
+  
+  # Commenting publishing of png files
+  # See https://support.terradue.com/issues/7102
+  #for graphFile in $(find ${outputpath}/plots/ -name *.png)
+  #do
+  #  ciop-publish -m ${graphFile}
+  #  exitcode=$?
+  #  if [ "${exitcode}" -ne 0 ] 
+  #  then 
+  #    exit ${ERR_PUBLISH}
+  #  fi
+  #done
+    
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
-  echo "Publishing results took $timeElapsed mSeconds"
+  echo "Publishing results took $timeElapsed mSeconds" | tee -a ${timeLogFile}
+  
+  # Here we need a further step of publishing due to the log file itself
+  ciop-publish -m ${timeLogFile}
+  exitcode=$?
+  if [ "${exitcode}" -ne 0 ] 
+  then 
+    exit ${ERR_PUBLISH}
+  fi
 
   exit ${SUCCESS}
 }
-
-
