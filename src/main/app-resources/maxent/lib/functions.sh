@@ -86,8 +86,11 @@ function pass_next_node()
 ###############################################################################
 function main()
 {
+  echo "Our habitat maxent program starts..."
+
   export JAVA_HOME="/usr/lib/jvm/jre-1.8.0"
   export PATH=/usr/lib/jvm/jre-1.8.0/bin:$PATH 
+  echo "export of java success"
 
   # get input and output parameters
   type="$(ciop-getparam type)"
@@ -104,18 +107,24 @@ function main()
   #
   # copy selected predictor maps
   #
+  echo "start extracting selected predictors..."
   currentTime=$(date +%s%N)
   IFS=","
-  predictordir="${TMPDIR}/predictors"
-  predictorCacheDir="${predictordir}/maxent.cache"
-  mkdir ${predictordir}
-  mkdir ${predictorCacheDir}
+  predictordir="/data/predictors"
+#  predictordir="${TMPDIR}/predictors"
+#  predictorCacheDir="${predictordir}/maxent.cache"
+#  mkdir ${predictordir}
+#  mkdir ${predictorCacheDir}
+  predictorlist=""
   for predictor in ${predictors}
   do
-	cp /data/predictors/${predictor}.asc ${predictordir}
-	cp /data/predictors/maxent.cache/${predictor}.info ${predictorCacheDir}
-	cp /data/predictors/maxent.cache/${predictor}.mxe ${predictorCacheDir}
+     echo "predictors -> ${predictorlist}" 
+#	cp /data/predictors/${predictor}.asc ${predictordir}
+#	cp /data/predictors/maxent.cache/${predictor}.info ${predictorCacheDir}
+#	cp /data/predictors/maxent.cache/${predictor}.mxe ${predictorCacheDir}
+     predictorlist+="${predictor};"
   done 
+  predictorlist=${predictorlist%;*}
   timeElapsed=$((($(date +%s%N) - $currentTime)/1000000))
   echo "Predictor file copying took $timeElapsed mSeconds" | tee -a ${timeLogFile}
 
@@ -149,7 +158,7 @@ function main()
 
   outputpath="${TMPDIR}/output"
   mkdir ${outputpath}
-  java -jar ${maxentjar}  ${predictordir} ${obspath} ${outputpath} 
+  java -jar ${maxentjar} ${predictordir} ${predictorlist} ${obspath} ${outputpath} 
   exitcode=$?
   if [ "${exitcode}" -ne 0 ] 
   then 
@@ -280,5 +289,3 @@ function main()
 
   exit ${SUCCESS}
 }
-
-
